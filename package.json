@@ -8,7 +8,9 @@
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {},
+  "dependencies": {
+    "hubot-slack": "^4.3.4"
+  },
   "peerDependencies": {
     "hubot": ">=2.0"
   },
