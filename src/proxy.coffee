@@ -1,30 +1,52 @@
-{Robot,Adapter,TextMessage,User} = require 'hubot'
+{Robot,Adapter,TextMessage,User} = require.main.require 'hubot'
 SlackBot = require 'hubot-slack/src/bot'
+url = require 'url'
+TO_PROXY_URL = process.env.TO_PROXY_URL
 
 class ToProxyBot extends SlackBot
 
-  constructor: ->
-    super
+  constructor: (@robot, @options) ->
+    super @robot, @options
     @robot.logger.info "ToProxyBot Constructor"
 
-  send: (envelope, strings...) ->
-    @robot.logger.info "Send"
+  send: (envelope, messages...) ->
+    unless TO_PROXY_URL?
+      return robot.logger.warning 'Required TO_PROXY_URL env.'
+
+    @robot.logger.info "Send to proxyChatBot."
+    data = JSON.stringify { user_id: envelope.user.id, room: envelope.room, text: messages.join('\n') }
+    @robot.http(url.resolve(TO_PROXY_URL, 'proxy/messages'))
+    .header('Content-Type', 'application/json')
+    .post(data) (err) =>
+      return @robot.logger.error(err) if err?
 
   reply: (envelope, strings...) ->
-    @robot.logger.info "Reply"
+    unless TO_PROXY_URL?
+      return robot.logger.warning 'Required TO_PROXY_URL env.'
+
+    @robot.logger.info "Reply to proxyChatBot."
+    data = JSON.stringify { user_id: envelope.user.id, room: envelope.room, text: messages.join('\n') }
+    @robot.http(url.resolve(TO_PROXY_URL, 'proxy/messages'))
+    .header('Content-Type', 'application/json')
+    .post(data) (err) =>
+      return @robot.logger.error(err) if err?
 
 class ToSlackBot extends SlackBot
 
-  constructor: ->
-    super
+  constructor: (@robot, @options) ->
+    super @robot, @options
     @robot.logger.info "ToSlackBot Constructor"
 
   run: ->
-    @robot.logger.info "Run"
+    return @robot.logger.error "No service token provided to Hubot" unless @options.token
+    return @robot.logger.error "Invalid service token provided, please follow the upgrade instructions" unless (@options.token.substring(0, 5) in ['xoxb-', 'xoxp-'])
+
+    @robot.router.post '/proxy/messages', (req, res) =>
+      {user_id, room, text} = req.body
+      user = @robot.brain.userForId user_id, room: room
+      @receive new TextMessage(user, text, "messageId")
+      res.end ""
     @emit "connected"
-    user = new User 1001, name: 'Proxy User'
-    message = new TextMessage user, 'Some Proxy Message', 'MSG-001'
-    @robot.receive message
 
 exports.use = (robot) ->
   switch process.env.HUBOT_PROXY_MODE
