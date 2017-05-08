@@ -1,7 +1,8 @@
 {Robot,Adapter,TextMessage,User} = require.main.require 'hubot'
 SlackBot = require 'hubot-slack/src/bot'
 url = require 'url'
-TO_PROXY_URL = process.env.TO_PROXY_URL
+CHATBOT_URL = process.env.CHATBOT_URL
+PROXYCHATBOT_URL = process.env.PROXYCHATBOT_URL
 
 class ToProxyBot extends SlackBot
 
@@ -10,26 +11,17 @@ class ToProxyBot extends SlackBot
     @robot.logger.info "ToProxyBot Constructor"
 
   send: (envelope, messages...) ->
-    unless TO_PROXY_URL?
-      return robot.logger.warning 'Required TO_PROXY_URL env.'
+    return @robot.logger.error "process.env.PROXYCHATBOT_URL is required." unless PROXYCHATBOT_URL
 
-    @robot.logger.info "Send to proxyChatBot."
-    data = JSON.stringify { user_id: envelope.user.id, room: envelope.room, text: messages.join('\n') }
-    @robot.http(url.resolve(TO_PROXY_URL, 'proxy/messages'))
-    .header('Content-Type', 'application/json')
-    .post(data) (err) =>
-      return @robot.logger.error(err) if err?
+  reply: (envelope, messages...) ->
+    return @robot.logger.error "process.env.PROXYCHATBOT_URL is required." unless PROXYCHATBOT_URL
 
-  reply: (envelope, strings...) ->
-    unless TO_PROXY_URL?
-      return robot.logger.warning 'Required TO_PROXY_URL env.'
-
-    @robot.logger.info "Reply to proxyChatBot."
-    data = JSON.stringify { user_id: envelope.user.id, room: envelope.room, text: messages.join('\n') }
-    @robot.http(url.resolve(TO_PROXY_URL, 'proxy/messages'))
-    .header('Content-Type', 'application/json')
-    .post(data) (err) =>
-      return @robot.logger.error(err) if err?
+  run: ->
+    @robot.router.post '/proxy/messages', (req, res) =>
+      {message, @self} = req.body
+      @message message
+      res.end ""
+    @emit "connected"
 
 class ToSlackBot extends SlackBot
 
@@ -37,16 +29,17 @@ class ToSlackBot extends SlackBot
     super @robot, @options
     @robot.logger.info "ToSlackBot Constructor"
 
-  run: ->
-    return @robot.logger.error "No service token provided to Hubot" unless @options.token
-    return @robot.logger.error "Invalid service token provided, please follow the upgrade instructions" unless (@options.token.substring(0, 5) in ['xoxb-', 'xoxp-'])
+  ###
+  Message received from Slack
+  ###
+  message: (message) =>
+    return @robot.logger.error "process.env.CHATBOT_URL is required." unless CHATBOT_URL
 
-    @robot.router.post '/proxy/messages', (req, res) =>
-      {user_id, room, text} = req.body
-      user = @robot.brain.userForId user_id, room: room
-      @receive new TextMessage(user, text, "messageId")
-      res.end ""
-    @emit "connected"
+    data = JSON.stringify { message: message, self: @self }
+    @robot.http(url.resolve(CHATBOT_URL, 'proxy/messages'))
+    .header('Content-Type', 'application/json')
+    .post(data) (err) =>
+      return @robot.logger.error(err) if err?
 
 exports.use = (robot) ->
   switch process.env.HUBOT_PROXY_MODE
