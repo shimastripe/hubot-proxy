@@ -13,11 +13,25 @@ class ToProxyBot extends SlackBot
   send: (envelope, messages...) ->
     return @robot.logger.error "process.env.PROXYCHATBOT_URL is required." unless PROXYCHATBOT_URL
 
+    @robot.logger.info "Send to ProxyChatBot."
+    data = JSON.stringify { user_id: envelope.user.id, room: envelope.room, text: messages.join('\n') }
+    @robot.http(url.resolve(PROXYCHATBOT_URL, 'proxy/messages'))
+    .header('Content-Type', 'application/json')
+    .post(data) (err) =>
+      return @robot.logger.error(err) if err?
+
   reply: (envelope, messages...) ->
     return @robot.logger.error "process.env.PROXYCHATBOT_URL is required." unless PROXYCHATBOT_URL
 
+    @robot.logger.info "Reply to ProxyChatBot."
+    data = JSON.stringify { user_id: envelope.user.id, room: envelope.room, text: messages.join('\n') }
+    @robot.http(url.resolve(PROXYCHATBOT_URL, 'proxy/messages'))
+    .header('Content-Type', 'application/json')
+    .post(data) (err) =>
+      return @robot.logger.error(err) if err?
+
   run: ->
-    @robot.router.post '/proxy/messages', (req, res) =>
+    @robot.router.post '/chatbot/messages', (req, res) =>
       {message, @self} = req.body
       @message message
       res.end ""
@@ -29,6 +43,14 @@ class ToSlackBot extends SlackBot
     super @robot, @options
     @robot.logger.info "ToSlackBot Constructor"
 
+  run: ->
+    @robot.router.post '/proxy/messages', (req, res) =>
+      {user_id, room, text} = req.body
+      user = @robot.brain.userForId user_id, room: room
+      @receive new TextMessage(user, text, "messageId")
+      res.end ""
+    super()
+
   ###
   Message received from Slack
   ###
@@ -36,7 +58,7 @@ class ToSlackBot extends SlackBot
     return @robot.logger.error "process.env.CHATBOT_URL is required." unless CHATBOT_URL
 
     data = JSON.stringify { message: message, self: @self }
-    @robot.http(url.resolve(CHATBOT_URL, 'proxy/messages'))
+    @robot.http(url.resolve(CHATBOT_URL, 'chatbot/messages'))
     .header('Content-Type', 'application/json')
     .post(data) (err) =>
       return @robot.logger.error(err) if err?
