@@ -14,7 +14,7 @@ class ToProxyBot extends SlackBot
     return @robot.logger.error "process.env.PROXYCHATBOT_URL is required." unless PROXYCHATBOT_URL
 
     @robot.logger.debug "Send messages to ProxyChatBot."
-    data = JSON.stringify { user_id: envelope.user.id, room: envelope.room, text: messages.join('\n') }
+    data = JSON.stringify { user_id: envelope.user.id, room: envelope.room, id: envelope.message.id, text: messages.join('\n') }
     @robot.http(url.resolve(PROXYCHATBOT_URL, 'proxy/messages'))
     .header('Content-Type', 'application/json')
     .post(data) (err) =>
@@ -24,7 +24,7 @@ class ToProxyBot extends SlackBot
     return @robot.logger.error "process.env.PROXYCHATBOT_URL is required." unless PROXYCHATBOT_URL
 
     @robot.logger.debug "Reply messages to ProxyChatBot."
-    data = JSON.stringify { user_id: envelope.user.id, room: envelope.room, text: messages.join('\n') }
+    data = JSON.stringify { user_id: envelope.user.id, room: envelope.room, id: envelope.message.id, text: messages.join('\n') }
     @robot.http(url.resolve(PROXYCHATBOT_URL, 'proxy/messages'))
     .header('Content-Type', 'application/json')
     .post(data) (err) =>
@@ -47,9 +47,10 @@ class ToSlackBot extends SlackBot
   run: ->
     @robot.router.post '/proxy/messages', (req, res) =>
       @robot.logger.debug "Receive messages from slack."
-      {user_id, room, text} = req.body
+      {user_id, room, id, text} = req.body
       user = @robot.brain.userForId user_id, room: room
-      @receive new TextMessage(user, text, "messageId")
+      # @receive new TextMessage(user, text, "messageId")
+      @receive new TextMessage(user, text, id)
       res.end ""
     super()
 
