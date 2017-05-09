@@ -4,11 +4,11 @@ url = require 'url'
 CHATBOT_URL = process.env.CHATBOT_URL
 PROXYCHATBOT_URL = process.env.PROXYCHATBOT_URL
 
-class ToProxyBot extends SlackBot
+class ChatBotAdapter extends SlackBot
 
   constructor: (@robot, @options) ->
     super @robot, @options
-    @robot.logger.debug "ToProxyBot Constructor"
+    @robot.logger.debug "ChatBotAdapter Constructor"
 
   send: (envelope, messages...) ->
     return @robot.logger.error "process.env.PROXYCHATBOT_URL is required." unless PROXYCHATBOT_URL
@@ -38,11 +38,11 @@ class ToProxyBot extends SlackBot
       res.end ""
     @emit "connected"
 
-class ToSlackBot extends SlackBot
+class ProxyChatBotAdapter extends SlackBot
 
   constructor: (@robot, @options) ->
     super @robot, @options
-    @robot.logger.debug "ToSlackBot Constructor"
+    @robot.logger.debug "ProxyChatBotAdapter Constructor"
 
   run: ->
     @robot.router.post '/proxy/messages', (req, res) =>
@@ -69,6 +69,6 @@ class ToSlackBot extends SlackBot
 
 exports.use = (robot) ->
   switch process.env.HUBOT_PROXY_MODE
-    when "toproxy" then new ToProxyBot robot, token: process.env.HUBOT_SLACK_TOKEN
-    when "tochat" then new ToSlackBot robot, token: process.env.HUBOT_SLACK_TOKEN
+    when "chat" then new ChatBotAdapter robot, token: process.env.HUBOT_SLACK_TOKEN
+    when "proxy" then new ProxyChatBotAdapter robot, token: process.env.HUBOT_SLACK_TOKEN
     else new SlackBot robot, token: process.env.HUBOT_SLACK_TOKEN
