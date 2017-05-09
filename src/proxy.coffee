@@ -8,12 +8,12 @@ class ToProxyBot extends SlackBot
 
   constructor: (@robot, @options) ->
     super @robot, @options
-    @robot.logger.info "ToProxyBot Constructor"
+    @robot.logger.debug "ToProxyBot Constructor"
 
   send: (envelope, messages...) ->
     return @robot.logger.error "process.env.PROXYCHATBOT_URL is required." unless PROXYCHATBOT_URL
 
-    @robot.logger.info "Send to ProxyChatBot."
+    @robot.logger.debug "Send messages to ProxyChatBot."
     data = JSON.stringify { user_id: envelope.user.id, room: envelope.room, text: messages.join('\n') }
     @robot.http(url.resolve(PROXYCHATBOT_URL, 'proxy/messages'))
     .header('Content-Type', 'application/json')
@@ -23,7 +23,7 @@ class ToProxyBot extends SlackBot
   reply: (envelope, messages...) ->
     return @robot.logger.error "process.env.PROXYCHATBOT_URL is required." unless PROXYCHATBOT_URL
 
-    @robot.logger.info "Reply to ProxyChatBot."
+    @robot.logger.debug "Reply messages to ProxyChatBot."
     data = JSON.stringify { user_id: envelope.user.id, room: envelope.room, text: messages.join('\n') }
     @robot.http(url.resolve(PROXYCHATBOT_URL, 'proxy/messages'))
     .header('Content-Type', 'application/json')
@@ -32,6 +32,7 @@ class ToProxyBot extends SlackBot
 
   run: ->
     @robot.router.post '/chatbot/messages', (req, res) =>
+      @robot.logger.debug "Receive messages to ProxyChatBot."
       {message, @self} = req.body
       @message message
       res.end ""
@@ -41,10 +42,11 @@ class ToSlackBot extends SlackBot
 
   constructor: (@robot, @options) ->
     super @robot, @options
-    @robot.logger.info "ToSlackBot Constructor"
+    @robot.logger.debug "ToSlackBot Constructor"
 
   run: ->
     @robot.router.post '/proxy/messages', (req, res) =>
+      @robot.logger.debug "Receive messages from slack."
       {user_id, room, text} = req.body
       user = @robot.brain.userForId user_id, room: room
       @receive new TextMessage(user, text, "messageId")
@@ -54,10 +56,11 @@ class ToSlackBot extends SlackBot
   ###
   Message received from Slack
   ###
-  message: (message) =>
+  message: (messages) =>
     return @robot.logger.error "process.env.CHATBOT_URL is required." unless CHATBOT_URL
 
-    data = JSON.stringify { message: message, self: @self }
+    @robot.logger.debug "Send messages to ChatBot."
+    data = JSON.stringify { message: messages, self: @self }
     @robot.http(url.resolve(CHATBOT_URL, 'chatbot/messages'))
     .header('Content-Type', 'application/json')
     .post(data) (err) =>
